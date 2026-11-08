@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="light only">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F5F4EF">
+<title>Calories</title>
+<style>
+  :root {
+    --bg: #F5F4EF;
+    --navy: #2B3A52;
+    --amber: #D4860B;
+    --teal: #3D7A6F;
+    --ink: #1A1A2E;
+    --card: #FFFFFF;
+    --line: #E3E1D8;
+  }
+  html { color-scheme: light only; background: #F5F4EF !important; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #F5F4EF !important;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+  }
+  main { width: 100%; max-width: 420px; flex: 1; display: flex; flex-direction: column; }
+
+  .label {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-top: 8vh;
+  }
+  .total {
+    text-align: center;
+    font-size: clamp(88px, 28vw, 128px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--navy);
+    margin: 14px 0 6px;
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.18s ease;
+  }
+  .total.pop { transform: scale(1.06); }
+  .unit {
+    text-align: center;
+    font-size: 15px;
+    color: var(--navy);
+    opacity: 0.6;
+    margin-bottom: 7vh;
+  }
+
+  .entry {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    box-shadow: 0 6px 24px rgba(43, 58, 82, 0.07);
+  }
+  .entry:focus-within { border-color: var(--teal); }
+  #amount {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--ink);
+    padding: 0 16px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  #amount::placeholder { color: #A9A89F; font-weight: 500; }
+  #add {
+    border: 0;
+    background: var(--amber);
+    color: #1A1A2E;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 18px 28px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: transform 0.08s ease, opacity 0.15s ease;
+  }
+  #add:active { transform: scale(0.96); }
+  #add:disabled { opacity: 0.4; }
+
+  .spacer { flex: 1; min-height: 32px; }
+
+  #reset {
+    align-self: center;
+    border: 1.5px solid var(--navy);
+    background: transparent;
+    color: var(--navy);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 12px 28px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  #reset.confirm {
+    background: #C0392B;
+    border-color: #C0392B;
+    color: #FFFFFF;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="label">Today</div>
+  <div class="total" id="total">0</div>
+  <div class="unit">calories</div>
+
+  <form class="entry" id="form" autocomplete="off">
+    <input id="amount" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" maxlength="5" aria-label="Calories eaten">
+    <button id="add" type="submit" disabled>Add</button>
+  </form>
+
+  <div class="spacer"></div>
+  <button id="reset" type="button">Reset</button>
+</main>
+
+<script>
+(function () {
+  var KEY = 'calories_total_v1';
+  var totalEl = document.getElementById('total');
+  var amountEl = document.getElementById('amount');
+  var addBtn = document.getElementById('add');
+  var resetBtn = document.getElementById('reset');
+  var form = document.getElementById('form');
+  var total = 0;
+  var resetTimer = null;
+
+  function load() {
+    try {
+      var v = parseInt(localStorage.getItem(KEY), 10);
+      total = isNaN(v) || v < 0 ? 0 : v;
+    } catch (e) { total = 0; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, String(total)); } catch (e) {}
+  }
+  function render(animate) {
+    totalEl.textContent = total.toLocaleString('en-US');
+    if (animate) {
+      totalEl.classList.add('pop');
+      setTimeout(function () { totalEl.classList.remove('pop'); }, 180);
+    }
+  }
+  function cleanInput() {
+    amountEl.value = amountEl.value.replace(/\D/g, '');
+    addBtn.disabled = !(parseInt(amountEl.value, 10) > 0);
+  }
+  function disarmReset() {
+    clearTimeout(resetTimer);
+    resetBtn.classList.remove('confirm');
+    resetBtn.textContent = 'Reset';
+  }
+
+  amountEl.addEventListener('input', cleanInput);
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = parseInt(amountEl.value, 10);
+    if (!(n > 0)) return;
+    total += n;
+    save();
+    render(true);
+    amountEl.value = '';
+    cleanInput();
+    disarmReset();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    if (resetBtn.classList.contains('confirm')) {
+      total = 0;
+      save();
+      render(true);
+      disarmReset();
+    } else {
+      resetBtn.classList.add('confirm');
+      resetBtn.textContent = 'Tap again to reset';
+      resetTimer = setTimeout(disarmReset, 3000);
+    }
+  });
+
+  load();
+  render(false);
+})();
+</script>
+</body>
+</html>
